@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autumn Feelings Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brown:#451a03;
+    --amber:#d97706;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    font-family: 'Fredoka', sans-serif;
+    background-image: url('back.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+  }
+
+  #leavesCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    background: transparent;
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(2px);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .content-container {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    padding: 2rem;
+  }
+
+  /* Аудио-кнопки в углу */
+  .audio-controls {
+    position: fixed;
+    top: 1.2rem;
+    right: 1.2rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .round-btn {
+    background: rgba(255,255,255,0.9);
+    border: 3px solid var(--amber);
+    border-radius: 50%;
+    width: 58px;
+    height: 58px;
+    font-size: 1.6rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    transition: transform 0.2s, background 0.2s;
+    padding: 0;
+  }
+  .round-btn:hover { transform: scale(1.12); background: #fde68a; }
+  .round-btn:active { transform: scale(0.92); }
+
+  /* Кнопки ответов */
+  .button-group {
+    display: flex;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+  .action-button {
+    font-family: 'Fredoka', sans-serif;
+    padding: 1.3rem 2.4rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--brown);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+    border: 4px solid transparent;
+  }
+  .action-button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  .action-button:hover:not(:disabled) {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 10px 16px rgba(0,0,0,0.25);
+  }
+
+  .btn-neutral { background: #fde68a; border-color: #d97706; }
+  .btn-neutral:hover:not(:disabled) { background: #fcd34d; }
+
+  .btn-love { background: #fecaca; border-color: #dc2626; }
+  .btn-love:hover:not(:disabled) { background: #fca5a5; }
+
+  .btn-cold { background: #bfdbfe; border-color: #2563eb; }
+  .btn-cold:hover:not(:disabled) { background: #93c5fd; }
+
+  .action-button.glow {
+    box-shadow: 0 0 25px 10px rgba(245,158,11,0.9);
+    transform: scale(1.08);
+  }
+
+  /* Центральная сцена */
+  .cinnabon-container {
+    position: relative;
+    width: 580px;
+    height: 580px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .cinnabon-container.shaking { animation: shake 0.35s infinite; }
+  @keyframes shake {
+    0%   { transform: translate(0,0) rotate(0deg); }
+    25%  { transform: translate(3px,-2px) rotate(1deg); }
+    50%  { transform: translate(-3px,2px) rotate(-1deg); }
+    75%  { transform: translate(2px,3px) rotate(1deg); }
+    100% { transform: translate(0,0) rotate(0deg); }
+  }
+
+  .cinnabon-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.4));
+    display: block;
+  }
+
+  .phrase-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 85%;
+    text-align: center;
+    font-size: 3rem;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow:
+      2px 2px 4px var(--brown),
+      -2px -2px 4px var(--brown),
+      2px -2px 4px var(--brown),
+      -2px 2px 4px var(--brown),
+      0 4px 10px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+  .phrase-text.pop-in { animation: popIn 0.4s ease; }
+  @keyframes popIn {
+    0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+    60%  { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+
+  /* Прогресс */
+  .progress-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    max-width: 520px;
+  }
+  .progress-label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--brown);
+    background: rgba(255,255,255,0.9);
+    padding: 0.4rem 1.4rem;
+    border-radius: 9999px;
+    border: 2px solid var(--amber);
+  }
+  .progress-bar-outer {
+    width: 100%;
+    height: 22px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 9999px;
+    border: 2px solid var(--amber);
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .progress-bar-inner {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg,#fbbf24,#f97316);
+    border-radius: 9999px;
+    transition: width 0.5s ease;
+  }
+
+  /* Модалки */
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-content {
+    background: #fff8eb;
+    padding: 3rem;
+    border-radius: 2rem;
+    text-align: center;
+    border: 6px solid var(--amber);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    max-width: 90%;
+  }
+  .modal-content h2 { color: var(--brown); margin-top: 0; }
+  .medal { font-size: 5rem; margin-bottom: 0.5rem; }
+
+  .stat-box {
+    background: rgba(255,255,255,0.7);
+    padding: 1.3rem 1.6rem;
+    border-radius: 1rem;
+    border: 2px dashed var(--amber);
+    margin-bottom: 1.6rem;
+    font-size: 1.15rem;
+    color: var(--brown);
+    text-align: left;
+    display: inline-block;
+  }
+  .stat-box div { margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+  .stat-bar-outer { background: #eee; border-radius: 9999px; height: 10px; width: 150px; overflow: hidden; }
+  .stat-bar-inner { height: 100%; border-radius: 9999px; }
+
+  #confettiCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 99;
+    pointer-events: none;
+  }
+
+  @media (max-width: 768px) {
+    .content-container { padding: 1rem; }
+    .cinnabon-container { width: 330px; height: 330px; }
+    .phrase-text { font-size: 1.3rem; }
+    .action-button { padding: 0.9rem 1.4rem; font-size: 1.1rem; }
+    .button-group { gap: 0.6rem; }
+    .audio-controls { top: 0.6rem; right: 0.6rem; gap: 0.5rem; }
+    .round-btn { width: 46px; height: 46px; font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="leavesCanvas"></canvas>
+<canvas id="confettiCanvas"></canvas>
+<div class="overlay"></div>
+
+<div class="audio-controls">
+  <button class="round-btn" id="speakerBtn" onclick="repeatPhrase()" title="Repeat the phrase">🔊</button>
+  <button class="round-btn" id="muteBtn" onclick="toggleMute()" title="Sound on / off">🎵</button>
+</div>
+
+<div class="content-container">
+
+  <div class="button-group">
+    <button class="action-button btn-neutral game-btn" data-choice="dontMind" onclick="handleChoice(this)">😌 I don't mind it</button>
+    <button class="action-button btn-love game-btn" data-choice="important" onclick="handleChoice(this)">❤️ It's very important to me</button>
+    <button class="action-button btn-cold game-btn" data-choice="cantStand" onclick="handleChoice(this)">😫 I can't stand it</button>
+  </div>
+
+  <div class="cinnabon-container" id="cinnabonContainer">
+    <img src="cin.png" alt="Cinnabon" class="cinnabon-image" id="cinnabonImg">
+    <div class="phrase-text" id="phraseText">Loading...</div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-label">Progress: <span id="progressCount">0</span> / 20</div>
+    <div class="progress-bar-outer">
+      <div class="progress-bar-inner" id="progressBarInner"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal" id="startModal" style="display:flex;">
+  <div class="modal-content">
+    <h2>🍂 Ready for an autumn chat? 🍂</h2>
+    <button class="action-button btn-neutral" onclick="startGame()">▶️ Start Game</button>
+  </div>
+</div>
+
+<div class="modal" id="endModal">
+  <div class="modal-content">
+    <div class="medal">🏆</div>
+    <h2>Great job! You're an autumn star!</h2>
+    <div class="stat-box">
+      <div>🍂 <strong>I don't mind it:</strong> <span id="statDontMind">0</span>
+        <div class="stat-bar-outer"><div class="stat-bar-inner" id="barDontMind" style="background:#f59e0b;"></div></div>
+      </div>
+      <div>❤️ <strong>Very important:</strong> <span id="statImportant">0</span>
+        <div class="stat-bar-outer"><div class="stat-bar-inner" id="barImportant" style="background:#dc2626;"></div></div>
+      </div>
+      <div>😫 <strong>Can't stand it:</strong> <span id="statCantStand">0</span>
+        <div class="stat-bar-outer"><div class="stat-bar-inner" id="barCantStand" style="background:#2563eb;"></div></div>
+      </div>
+    </div>
+    <br>
+    <button class="action-button btn-neutral" onclick="resetGame()">🔁 Play Again</button>
+  </div>
+</div>
+
+<script>
+const initialPhrases = [
+  "Getting up when it's still dark","Walking in the rain","Going back to school",
+  "Doing homework in the evening","Wearing warm clothes","Drinking hot tea",
+  "Spending time with my family","Staying at home on rainy days","Walking through fallen leaves",
+  "Cold and windy weather","Taking an umbrella with me","Getting enough sleep",
+  "Studying hard at school","Spending time outdoors","Dark autumn mornings",
+  "Going for a walk on a chilly day","Getting wet in the rain","Having shorter days",
+  "Eating warm homemade food","Spending weekends at home"
+];
+
+let availablePhrases = [];
+let currentPhrase = "";
+const totalCount = initialPhrases.length;
+let stats = { dontMind: 0, important: 0, cantStand: 0 };
+let soundOn = true;
+
+const phraseText = document.getElementById('phraseText');
+const progressCount = document.getElementById('progressCount');
+const progressBarInner = document.getElementById('progressBarInner');
+const startModal = document.getElementById('startModal');
+const endModal = document.getElementById('endModal');
+const buttons = document.querySelectorAll('.game-btn');
+const cinnabonContainer = document.getElementById('cinnabonContainer');
+const muteBtn = document.getElementById('muteBtn');
+
+const statDontMind = document.getElementById('statDontMind');
+const statImportant = document.getElementById('statImportant');
+const statCantStand = document.getElementById('statCantStand');
+const barDontMind = document.getElementById('barDontMind');
+const barImportant = document.getElementById('barImportant');
+const barCantStand = document.getElementById('barCantStand');
+
+let audioCtx;
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === 'suspended'){
+    audioCtx.resume();
+  }
+}
+
+function playTone(freqs, duration){
+  if(!soundOn) return;
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, t);
+  gainNode.gain.linearRampToValueAtTime(0.35, t + 0.02);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  gainNode.connect(audioCtx.destination);
+
+  for(let i = 0; i < freqs.length; i++){
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freqs[i], t);
+    osc.connect(gainNode);
+    osc.start(t);
+    osc.stop(t + duration + 0.1);
+  }
+}
+
+function playClickSound(choice){
+  if(choice === 'important'){
+    playTone([659.25, 880], 0.55);
+  } else if(choice === 'cantStand'){
+    playTone([392, 329.63], 0.5);
+  } else {
+    playTone([523.25, 659.25], 0.5);
+  }
+}
+
+function speak(text){
+  if(!soundOn) return;
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 0.85;
+  u.pitch = 1.05;
+  window.speechSynthesis.speak(u);
+}
+
+function repeatPhrase(){
+  ensureAudio();
+  if(currentPhrase){
+    speak(currentPhrase);
+  }
+}
+
+function toggleMute(){
+  soundOn = !soundOn;
+  muteBtn.innerText = soundOn ? '🎵' : '🔇';
+  if(!soundOn && window.speechSynthesis){
+    window.speechSynthesis.cancel();
+  }
+}
+
+const leavesCanvas = document.getElementById('leavesCanvas');
+const lctx = leavesCanvas.getContext('2d');
+let leaves = [];
+const LEAF_EMOJIS = ['🍂', '🍁', '🍃'];
+
+function resizeCanvas(){
+  leavesCanvas.width = window.innerWidth;
+  leavesCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function spawnLeaf(randomY){
+  return {
+    x: Math.random() * leavesCanvas.width,
+    y: randomY ? Math.random() * leavesCanvas.height : -30,
+    size: 18 + Math.random() * 22,
+    speedY: 0.4 + Math.random() * 0.9,
+    angle: Math.random() * 360,
+    spin: (Math.random() - 0.5) * 2,
+    emoji: LEAF_EMOJIS[Math.floor(Math.random() * LEAF_EMOJIS.length)],
+    sway: Math.random() * Math.PI * 2
+  };
+}
+
+function initLeaves(){
+  leaves = [];
+  for(let i = 0; i < 16; i++){
+    leaves.push(spawnLeaf(true));
+  }
+}
+
+function animateLeaves(){
+  lctx.clearRect(0, 0, leavesCanvas.width, leavesCanvas.height);
+  for(let i = 0; i < leaves.length; i++){
+    const leaf = leaves[i];
+    leaf.y += leaf.speedY;
+    leaf.sway += 0.02;
+    leaf.x += Math.sin(leaf.sway) * 0.6;
+    leaf.angle += leaf.spin;
+
+    if(leaf.y > leavesCanvas.height + 30){
+      leaves[i] = spawnLeaf(false);
+    }
+
+    lctx.save();
+    lctx.translate(leaf.x, leaf.y);
+    lctx.rotate(leaf.angle * Math.PI / 180);
+    lctx.font = leaf.size + 'px sans-serif';
+    lctx.globalAlpha = 0.85;
+    lctx.fillText(leaf.emoji, -leaf.size / 2, leaf.size / 2);
+    lctx.restore();
+  }
+  requestAnimationFrame(animateLeaves);
+}
+
+initLeaves();
+animateLeaves();
+
+const confettiCanvas = document.getElementById('confettiCanvas');
+const cctx = confettiCanvas.getContext('2d');
+confettiCanvas.width = window.innerWidth;
+confettiCanvas.height = window.innerHeight;
+window.addEventListener('resize', function(){
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+});
+
+function burstConfetti(){
+  const pieces = [];
+  const colors = ['#f59e0b', '#dc2626', '#2563eb', '#facc15', '#fb923c'];
+  for(let i = 0; i < 80; i++){
+    pieces.push({
+      x: confettiCanvas.width / 2,
+      y: confettiCanvas.height / 2,
+      vx: (Math.random() - 0.5) * 14,
+      vy: (Math.random() - 1.5) * 14,
+      size: 6 + Math.random() * 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * 360,
+      vr: (Math.random() - 0.5) * 10,
+      life: 0
+    });
+  }
+
+  function frame(){
+    cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    let alive = false;
+    for(let i = 0; i < pieces.length; i++){
+      const p = pieces[i];
+      p.vy += 0.35;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.vr;
+      p.life++;
+      if(p.life < 150){
+        alive = true;
+        cctx.save();
+        cctx.translate(p.x, p.y);
+        cctx.rotate(p.rot * Math.PI / 180);
+        cctx.fillStyle = p.color;
+        cctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        cctx.restore();
+      }
+    }
+    if(alive){
+      requestAnimationFrame(frame);
+    } else {
+      cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    }
+  }
+  frame();
+}
+
+function burstStars(button, symbol){
+  const rect = button.getBoundingClientRect();
+  for(let i = 0; i < 8; i++){
+    const star = document.createElement('div');
+    star.innerText = symbol;
+    star.style.position = 'fixed';
+    star.style.left = (rect.left + rect.width / 2) + 'px';
+    star.style.top = (rect.top + rect.height / 2) + 'px';
+    star.style.fontSize = (16 + Math.random() * 14) + 'px';
+    star.style.pointerEvents = 'none';
+    star.style.zIndex = '9998';
+    document.body.appendChild(star);
+
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 80;
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist - 40;
+
+    const anim = star.animate([
+      { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 1 },
+      { transform: 'translate(calc(-50% + ' + tx + 'px), calc(-50% + ' + ty + 'px)) scale(1.1)', opacity: 1, offset: 0.6 },
+      { transform: 'translate(calc(-50% + ' + (tx * 1.3) + 'px), calc(-50% + ' + (ty + 60) + 'px)) scale(0.4)', opacity: 0 }
+    ], { duration: 900, easing: 'ease-out' });
+
+    anim.onfinish = function(){ star.remove(); };
+  }
+}
+
+function initGame(){
+  availablePhrases = initialPhrases.slice();
+  stats = { dontMind: 0, important: 0, cantStand: 0 };
+  updateProgress(0);
+  showNextPhrase();
+}
+
+function spinRandomizer(onDone){
+  cinnabonContainer.classList.add('shaking');
+  let elapsed = 0;
+  const totalDuration = 2600;
+  let delay = 55;
+
+  function tick(){
+    const idx = Math.floor(Math.random() * initialPhrases.length);
+    phraseText.innerText = initialPhrases[idx];
+    elapsed += delay;
+    delay = 55 + Math.pow(elapsed / totalDuration, 3) * 220;
+    if(elapsed < totalDuration){
+      setTimeout(tick, delay);
+    } else {
+      cinnabonContainer.classList.remove('shaking');
+      onDone();
+    }
+  }
+  tick();
+}
+
+function showNextPhrase(){
+  if(availablePhrases.length === 0){
+    finishGame();
+    return;
+  }
+
+  for(let i = 0; i < buttons.length; i++){ buttons[i].disabled = true; }
+
+  spinRandomizer(function(){
+    const randomIndex = Math.floor(Math.random() * availablePhrases.length);
+    const selectedPhrase = availablePhrases.splice(randomIndex, 1)[0];
+    currentPhrase = selectedPhrase;
+
+    phraseText.classList.remove('pop-in');
+    void phraseText.offsetWidth;
+    phraseText.innerText = selectedPhrase;
+    phraseText.classList.add('pop-in');
+
+    speak(selectedPhrase);
+
+    for(let i = 0; i < buttons.length; i++){ buttons[i].disabled = false; }
+  });
+}
+
+function handleChoice(btnElement){
+  ensureAudio();
+  const choice = btnElement.getAttribute('data-choice');
+  if(choice){
+    stats[choice]++;
+    playClickSound(choice);
+    const symbol = choice === 'important' ? '💖' : (choice === 'cantStand' ? '💧' : '🍂');
+    burstStars(btnElement, symbol);
+  }
+
+  btnElement.classList.add('glow');
+  const currentProgress = totalCount - availablePhrases.length;
+  updateProgress(currentProgress);
+
+  for(let i = 0; i < buttons.length; i++){ buttons[i].disabled = true; }
+
+  setTimeout(function(){
+    btnElement.classList.remove('glow');
+    showNextPhrase();
+  }, 500);
+}
+
+function updateProgress(completed){
+  progressCount.innerText = completed;
+  progressBarInner.style.width = Math.round((completed / totalCount) * 100) + '%';
+}
+
+function finishGame(){
+  statDontMind.innerText = stats.dontMind;
+  statImportant.innerText = stats.important;
+  statCantStand.innerText = stats.cantStand;
+
+  const max = Math.max(1, totalCount);
+  barDontMind.style.width = (stats.dontMind / max * 100) + '%';
+  barImportant.style.width = (stats.important / max * 100) + '%';
+  barCantStand.style.width = (stats.cantStand / max * 100) + '%';
+
+  phraseText.innerText = "";
+  currentPhrase = "";
+  endModal.style.display = 'flex';
+  burstConfetti();
+  playTone([523, 659, 784, 1046], 0.8);
+}
+
+function startGame(){
+  startModal.style.display = 'none';
+  ensureAudio();
+  playClickSound('dontMind');
+
+  phraseText.innerText = "";
+  for(let i = 0; i < buttons.length; i++){ buttons[i].disabled = true; }
+
+  setTimeout(function(){
+    phraseText.innerText = "Get ready!";
+    setTimeout(function(){ phraseText.innerText = "3"; playClickSound('dontMind'); }, 900);
+    setTimeout(function(){ phraseText.innerText = "2"; playClickSound('dontMind'); }, 1700);
+    setTimeout(function(){ phraseText.innerText = "1"; playClickSound('dontMind'); }, 2500);
+    setTimeout(function(){ initGame(); }, 3300);
+  }, 600);
+}
+
+function resetGame(){
+  endModal.style.display = 'none';
+  for(let i = 0; i < buttons.length; i++){ buttons[i].disabled = false; }
+  initGame();
+}
+
+window.onload = function(){
+  phraseText.innerText = "Ready?";
+  startModal.style.display = 'flex';
+};
+</script>
+</body>
+</html>
